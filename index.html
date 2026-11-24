@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060913">
+<title>link_hub</title>
+<link rel="icon" type="image/png" href="icon.png">
+
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+html {
+  min-height: 100%;
+  background: #060913;
+}
+
+body {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  color: #fff;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+}
+
+/* Постоянный фоновый слой, включая области safe area */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 35%, #0f2347 0%, #060913 75%);
+}
+
+header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(20px + env(safe-area-inset-top)) 24px 20px;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.app-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 8px 20px rgba(232,108,26,.45);
+}
+
+.brand {
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(90deg,#fff,#93c5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.screen {
+  position: fixed;
+  inset: calc(84px + env(safe-area-inset-top)) 0 calc(90px + env(safe-area-inset-bottom)) 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* Главная: орбита */
+.orbit-stage {
+  position: relative;
+  width: min(76vw, 310px);
+  height: min(76vw, 310px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.orbit-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px dashed rgba(59,130,246,.35);
+  animation: spin 40s linear infinite;
+  pointer-events: none;
+}
+
+#sats {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.core-btn {
+  width: 176px;
+  height: 176px;
+  max-width: 76vw;
+  max-height: 76vw;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle at 30% 30%,#60a5fa,#2563eb 60%,#1d4ed8);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 45px rgba(37,99,235,.8),inset 0 4px 12px rgba(255,255,255,.45);
+  transition: .25s;
+  z-index: 5;
+  line-height: 1.25;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.core-btn:hover { transform: scale(1.07); }
+.core-btn:active { transform: scale(.93); filter: brightness(.9); }
+
+/* Ссылки-спутники */
+.sat-track {
+  position: absolute;
+  inset: 0;
+  animation: orbit var(--dur,16s) linear infinite;
+  pointer-events: none;
+}
+
+.sat-pill {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15,23,42,.9);
+  border: 1px solid rgba(96,165,250,.55);
+  color: #e0f2fe;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 18px rgba(37,99,235,.45);
+  pointer-events: auto;
+  animation: counter var(--dur,16s) linear infinite;
+  transition: background .2s, color .2s, filter .15s;
+}
+
+.sat-pill:hover { background: #2563eb; color: #fff; }
+.sat-pill:active { background: #1d4ed8; color: #fff; filter: brightness(.85); }
+
+/* Список ссылок */
+.links-box {
+  width: 100%;
+  max-width: 520px;
+  height: 100%;
+  padding: 12px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.links-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+
+.card {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: fadeUp .25s ease;
+}
+
+.card-info { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.card-name {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-url {
+  color: #93c5fd;
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.del-btn {
+  flex-shrink: 0;
+  background: rgba(239,68,68,.2);
+  color: #fca5a5;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: .15s;
+}
+
+.del-btn:hover { background: rgba(239,68,68,.45); color: #fff; }
+.del-btn:active { transform: scale(.94); filter: brightness(.85); }
+.empty { text-align: center; color: #94a3b8; font-size: 17px; margin-top: 40px; }
+
+/* Нижняя навигация */
+nav {
+  position: fixed;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15,23,42,.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,.12);
+  padding: 6px;
+  border-radius: 999px;
+  display: flex;
+  gap: 6px;
+  z-index: 30;
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+}
+
+.nav-btn {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.nav-btn.active { background: #2563eb; color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.5); }
+.nav-btn:active { transform: scale(.95); }
+
+/* Модальное окно */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+
+.modal.open { display: flex; }
+
+.modal-card {
+  background: #0f172a;
+  border: 1px solid rgba(96,165,250,.4);
+  border-radius: 24px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 100%;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0,0,0,.6);
+}
+
+.modal-card h3 { font-size: 20px; margin-bottom: 14px; }
+
+.modal-card input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.modal-card input:focus { border-color: #3b82f6; }
+.modal-card input::placeholder { color: #94a3b8; opacity: 1; }
+.modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+
+.btn-no, .btn-ok {
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+}
+
+.btn-no { background: rgba(255,255,255,.1); color: #cbd5e1; }
+.btn-ok { background: #2563eb; color: #fff; }
+.btn-no:active, .btn-ok:active { transform: scale(.95); filter: brightness(.85); }
+
+/* Анимации */
+@keyframes orbit {
+  from { transform: rotate(var(--start,0deg)); }
+  to { transform: rotate(calc(var(--start,0deg) + 360deg)); }
+}
+
+@keyframes counter {
+  from { transform: translateX(-50%) rotate(calc(-1 * var(--start,0deg))); }
+  to { transform: translateX(-50%) rotate(calc(-1 * var(--start,0deg) - 360deg)); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 42px rgba(37,99,235,.7),inset 0 4px 12px rgba(255,255,255,.45); }
+  50% { box-shadow: 0 0 62px rgba(59,130,246,.95),inset 0 4px 14px rgba(255,255,255,.55); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Адаптация */
+@media (max-width: 380px) {
+  header { padding-left: 16px; padding-right: 16px; }
+  .nav-btn { padding-left: 20px; padding-right: 20px; }
+  .links-box { padding-left: 14px; padding-right: 14px; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .orbit-stage { width: min(65vh,250px); height: min(65vh,250px); }
+  .core-btn { width: 140px; height: 140px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="icon.png" alt="link_hub" class="app-icon" width="44" height="44">
+  <div class="brand">link_hub</div>
+</header>
+
+<div id="tab-home" class="screen active">
+  <div class="orbit-stage">
+    <div class="orbit-ring"></div>
+    <div id="sats"></div>
+    <button type="button" class="core-btn" id="btn-create">Создать<br>ссылку</button>
+  </div>
+</div>
+
+<div id="tab-links" class="screen">
+  <div class="links-box">
+    <div class="links-title">Мои ссылки</div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<nav aria-label="Основная навигация">
+  <button type="button" class="nav-btn active" id="nav-home">Главная</button>
+  <button type="button" class="nav-btn" id="nav-links">Ссылки</button>
+</nav>
+
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h3 id="modal-title">Новая ссылка</h3>
+    <input type="text" id="in-url" placeholder="Ссылка (например: youtube.com)" autocomplete="off" inputmode="url">
+    <input type="text" id="in-name" placeholder="Название (необязательно)" autocomplete="off">
+    <div class="modal-btns">
+      <button type="button" class="btn-no" id="btn-cancel">Отмена</button>
+      <button type="button" class="btn-ok" id="btn-save">Запустить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'link_hub_items';
+
+function loadItems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item =>
+      item &&
+      typeof item.url === 'string' &&
+      typeof item.label === 'string' &&
+      item.url.length > 0
+    );
+  } catch (error) {
+    console.error('Ошибка чтения ссылок:', error);
+    return [];
+  }
+}
+
+let items = loadItems();
+
+function persistItems(newItems) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
+    return true;
+  } catch (error) {
+    console.error('Ошибка сохранения:', error);
+    alert('Не удалось сохранить ссылку. Проверь доступ к хранилищу браузера.');
+    return false;
+  }
+}
+
+const modal = document.getElementById('modal');
+const inUrl = document.getElementById('in-url');
+const inName = document.getElementById('in-name');
+const sats = document.getElementById('sats');
+const list = document.getElementById('list');
+const navHome = document.getElementById('nav-home');
+const navLinks = document.getElementById('nav-links');
+const tabHome = document.getElementById('tab-home');
+const tabLinks = document.getElementById('tab-links');
+
+function switchTab(tab) {
+  const isHome = tab === 'home';
+  navHome.classList.toggle('active', isHome);
+  navLinks.classList.toggle('active', !isHome);
+  tabHome.classList.toggle('active', isHome);
+  tabLinks.classList.toggle('active', !isHome);
+}
+
+navHome.addEventListener('click', () => switchTab('home'));
+navLinks.addEventListener('click', () => switchTab('links'));
+
+function openModal() {
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  window.setTimeout(() => inUrl.focus(), 50);
+}
+
+function closeModal() {
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('btn-create').addEventListener('click', openModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+
+modal.addEventListener('click', event => {
+  if (event.target === modal) closeModal();
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && modal.classList.contains('open')) closeModal();
+});
+
+function save() {
+  let value = inUrl.value.trim();
+  const name = inName.value.trim();
+
+  if (!value) {
+    inUrl.focus();
+    return;
+  }
+
+  if (!/^https?:\/\//i.test(value)) value = 'https://' + value;
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(value);
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      alert('Разрешены только HTTP и HTTPS ссылки.');
+      return;
+    }
+  } catch (error) {
+    alert('Проверь правильность введённой ссылки.');
+    return;
+  }
+
+  const domain = parsedUrl.href
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/\/$/, '');
+
+  const newItem = {
+    id: Date.now(),
+    url: parsedUrl.href,
+    label: name || domain,
+    domain
+  };
+
+  const updatedItems = [newItem, ...items];
+  if (!persistItems(updatedItems)) return;
+
+  items = updatedItems;
+  inUrl.value = '';
+  inName.value = '';
+  closeModal();
+  draw();
+}
+
+document.getElementById('btn-save').addEventListener('click', save);
+inUrl.addEventListener('keydown', event => { if (event.key === 'Enter') save(); });
+inName.addEventListener('keydown', event => { if (event.key === 'Enter') save(); });
+
+function del(id) {
+  const updatedItems = items.filter(item => String(item.id) !== String(id));
+  if (!persistItems(updatedItems)) return;
+  items = updatedItems;
+  draw();
+}
+
+function createElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+function draw() {
+  sats.replaceChildren();
+  list.replaceChildren();
+
+  items.forEach((item, index) => {
+    const track = createElement('div', 'sat-track');
+    track.style.setProperty('--start', (360 / items.length) * index + 'deg');
+    track.style.setProperty('--dur', (14 + (index % 4) * 3) + 's');
+
+    const link = createElement('a', 'sat-pill', item.label);
+    link.href = item.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    track.appendChild(link);
+    sats.appendChild(track);
+  });
+
+  if (!items.length) {
+    list.appendChild(createElement('div', 'empty', 'Пока пусто. Нажми на синюю сферу на главной!'));
+    return;
+  }
+
+  items.forEach(item => {
+    const card = createElement('div', 'card');
+    const info = createElement('div', 'card-info');
+    const name = createElement('a', 'card-name', item.label);
+    const domain = createElement('span', 'card-url', item.domain || item.url);
+    const deleteButton = createElement('button', 'del-btn', 'Удалить');
+
+    name.href = item.url;
+    name.target = '_blank';
+    name.rel = 'noopener noreferrer';
+    deleteButton.type = 'button';
+    deleteButton.dataset.id = String(item.id);
+
+    info.appendChild(name);
+    info.appendChild(domain);
+    card.appendChild(info);
+    card.appendChild(deleteButton);
+    list.appendChild(card);
+  });
+}
+
+list.addEventListener('click', event => {
+  const button = event.target.closest('.del-btn');
+  if (!button || !list.contains(button)) return;
+  del(button.dataset.id);
+});
+
+/* Первый рендер при загрузке */
+draw();
+</script>
+
+</body>
+</html>
